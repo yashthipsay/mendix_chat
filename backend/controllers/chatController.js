@@ -38,4 +38,39 @@ export const handleChatConnection = (socket) => {
             console.error("Error joining chat", error);
         }
     });
+
+    socket.on("send_message", async ({senderId, recipientId, message}) => {
+        try {
+            const newMessage = await Message.create({
+                senderId,
+                recipientId,
+                message,
+            });
+
+            const recipientSocket = [...activeUsers.values()].find(
+                (user) => user.userId === recipientId
+            )?.socket;
+
+            if(recipientSocket) {
+            recipientSocket.emit("receive_message", {
+                senderId,
+                message: newMessage.message,
+                createdAt: newMessage.createdAt,
+            });
+        }
+        } catch(error) {
+            console.error("Error creating message:", error);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`Socket disconnected: ${socket.id}`);
+
+        activeUsers.delete(socket.id);
+
+        ioInstance.emit(
+            "active_users",
+            [...activeUsers.values()].map((user) => user.userId)
+        );
+    })
 }
